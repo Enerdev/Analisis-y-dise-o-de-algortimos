@@ -1,0 +1,286 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,array,float}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+
+\renewcommand{\contentsname}{Índice}
+\renewcommand{\tablename}{Tabla}
+\renewcommand{\refname}{Referencias}
+\renewcommand{\figurename}{Figura}
+\renewcommand{\appendixname}{Anexo}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black}
+\definecolor{cgris}{gray}{0.96}
+\definecolor{ccom}{rgb}{0.1,0.45,0.1}
+\definecolor{ckey}{rgb}{0.1,0.1,0.65}
+\lstset{
+  basicstyle=\ttfamily\footnotesize, backgroundcolor=\color{cgris},
+  keywordstyle=\color{ckey}\bfseries, commentstyle=\color{ccom}\itshape,
+  stringstyle=\color{red!60!black}, numbers=left, numberstyle=\tiny\color{gray},
+  frame=single, breaklines=true, tabsize=4, showstringspaces=false,
+  columns=fullflexible, keepspaces=true
+}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Algoritmos Voraces -- Tarea 7\_2}
+\rhead{UNAP -- Ingeniería de Sistemas}
+\cfoot{\thepage}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+{\large UNIVERSIDAD NACIONAL DEL ALTIPLANO -- PUNO\par}
+{\large Facultad de Ingeniería Mecánica Eléctrica, Electrónica y Sistemas\par}
+{\large Escuela Profesional de Ingeniería de Sistemas\par}
+\vspace{2.5cm}
+{\Huge\bfseries El problema de la mochila:\\[0.3cm] algoritmos voraces\\[0.3cm] vs.\ programación dinámica\par}
+\vspace{1.5cm}
+{\Large Tarea 7\_2 -- Algoritmos Voraces: Problemas\par}
+\vspace{3cm}
+\begin{tabular}{rl}
+\textbf{Estudiante:} & Emerson Aldair Flores Flores \\
+\textbf{Código de matrícula:} & 240439 \\
+\textbf{Semestre:} & VI \\
+\textbf{Fecha de entrega:} & 12 de octubre de 2026 \\
+\end{tabular}
+\vfill
+{\large Puno, Perú -- 2026\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+%=====================================================================
+\section{Introducción}
+El capítulo 21 de \emph{Algoritmos a fondo} (Sznajdleder) presenta tres estrategias algorítmicas: divide y conquista, algoritmos voraces (\emph{greedy}) y programación dinámica. Sobre el problema de la mochila, el texto resuelve únicamente la variante \textbf{fraccionada} con un algoritmo voraz, y sobre el problema de los billetes muestra que el enfoque voraz puede fallar y que la programación dinámica lo corrige.
+
+Este informe une ambas ideas: se plantea el problema de la mochila en sus dos variantes (fraccionada y 0/1), se resuelve con un algoritmo voraz y con programación dinámica, y se comparan ambos enfoques en corrección, complejidad y uso de memoria. Las implementaciones se realizaron en \textbf{C++} y \textbf{Python}.
+
+\textbf{Objetivo general.} Comparar el desempeño y la corrección de los algoritmos voraces y de la programación dinámica al resolver el problema de la mochila.
+
+\textbf{Objetivos específicos.}
+\begin{itemize}[nosep]
+  \item Resolver el ejemplo del libro (capacidad de 40 kg) con ambos enfoques.
+  \item Determinar en qué variante el algoritmo voraz es óptimo y en cuál no.
+  \item Medir experimentalmente la frecuencia de error del voraz y los tiempos de ejecución.
+\end{itemize}
+
+%=====================================================================
+\section{Marco teórico}
+
+\subsection{Algoritmos voraces}
+Un algoritmo voraz construye la solución evaluando uno a uno los elementos de un \emph{conjunto de candidatos}; cada elemento se toma o se descarta de forma definitiva, sin reconsiderar la decisión. Se identifican cuatro funciones:
+\begin{itemize}[nosep]
+  \item \textbf{Selección}: elige el candidato más apropiado.
+  \item \textbf{Factibilidad}: verifica si el candidato puede incluirse en la solución.
+  \item \textbf{Solución}: verifica si el conjunto construido resuelve el problema.
+  \item \textbf{Objetivo}: la magnitud que se desea optimizar.
+\end{itemize}
+
+\subsection{Programación dinámica}
+Se basa en el \textbf{principio de optimalidad} de Bellman: \emph{en una secuencia óptima de decisiones, toda subsecuencia también es óptima}. El problema se divide en subproblemas \textbf{no independientes}; el resultado de cada uno se almacena en una tabla para no recalcularlo. Implica menos operaciones a cambio de mayor uso de memoria.
+
+\subsection{Problema de los billetes (antecedente)}
+Con denominaciones \$10, \$40 y \$60 y un monto de \$80, el voraz entrega 1 billete de \$60 y 2 de \$10 (3 billetes), mientras que el óptimo son 2 billetes de \$40. Esto muestra que \emph{la elección localmente mejor no siempre conduce al óptimo global}, situación que reaparece en la mochila 0/1.
+
+%=====================================================================
+\section{Formulación del problema}
+Se tiene una mochila de capacidad $P$ y $n$ objetos, cada uno con peso $p_i$ y valor $v_i$. Se desea
+\[
+\max \sum_{i=1}^{n} x_i\, v_i \qquad \text{sujeto a} \qquad \sum_{i=1}^{n} x_i\, p_i \le P .
+\]
+\begin{itemize}
+  \item \textbf{Mochila fraccionada:} $x_i \in [0,1]$ (los objetos pueden dividirse). Es la variante del libro.
+  \item \textbf{Mochila 0/1:} $x_i \in \{0,1\}$ (cada objeto se toma completo o no se toma).
+\end{itemize}
+
+\paragraph{Datos del ejemplo del libro.} $P = 40$ kg.
+\begin{table}[H]
+\centering
+\begin{tabular}{cccc}
+\toprule
+Elemento & Valor (\$) & Peso (kg) & \$/kg \\
+\midrule
+A & 50 & 36 & 1,39 \\
+B & 48 & 30 & 1,60 \\
+C & 30 & 20 & 1,50 \\
+\bottomrule
+\end{tabular}
+\caption{Elementos del ejemplo y su relación valor/peso.}
+\end{table}
+\noindent\textit{Nota:} la relación de B es $48/30 = 1{,}60$ (el texto original consigna 1,66, pero el orden B $>$ C $>$ A no cambia).
+
+%=====================================================================
+\section{Solución con algoritmos voraces}
+
+\subsection{Mochila fraccionada}
+\textbf{Selección:} el objeto con mayor relación $v_i/p_i$. \textbf{Factibilidad:} se carga la fracción $x_i=\min(1,\,\text{disponible}/p_i)$.
+
+\begin{enumerate}[nosep]
+  \item Ordenar por $v/p$ decreciente: B, C, A.
+  \item Cargar B completo (30 kg). Quedan 10 kg.
+  \item C pesa 20 kg: se carga $\tfrac12$ de C (10 kg). Mochila llena.
+  \item A no se carga.
+\end{enumerate}
+Valor total: $1\cdot 48 + \tfrac12\cdot 30 = \mathbf{63}$ \$.
+
+\paragraph{Por qué es óptimo.} Por un argumento de intercambio: si una solución óptima dejara espacio sin usar de un objeto de mayor relación $v/p$ y tuviera cargado parte de uno de menor relación, intercambiar esa parte aumentaría el valor sin violar la capacidad. Por lo tanto la solución voraz ordenada por $v/p$ es óptima en la variante fraccionada.
+
+\subsection{Mochila 0/1: el voraz deja de ser óptimo}
+Cuando no se puede fraccionar, se usan los mismos criterios pero se descarta el objeto si no cabe entero. Se probaron tres criterios de selección con el mismo ejemplo:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Criterio de selección & Selección & Valor (\$) & ¿Óptimo? \\
+\midrule
+Mayor $v/p$ & \{B\} & 48 & No \\
+Mayor valor & \{A\} & 50 & Sí (por casualidad) \\
+Menor peso & \{C\} & 30 & No \\
+\bottomrule
+\end{tabular}
+\caption{Voraz 0/1 con tres criterios para $P=40$.}
+\end{table}
+
+Con el criterio $v/p$ se elige B (30 kg) y luego ni C (20 kg) ni A (36 kg) caben en los 10 kg restantes: el valor es \$48, aunque existe una solución mejor (solo A, \$50). El voraz tomó una decisión irrevocable que bloqueó una mejor combinación.
+
+\paragraph{Complejidad.} El ordenamiento domina: $O(n\log n)$ en tiempo y $O(1)$ de memoria adicional (además del arreglo ordenado).
+
+%=====================================================================
+\section{Solución con programación dinámica (mochila 0/1)}
+
+\subsection{Subproblema y recurrencia}
+Sea $m[i][w]$ el mejor valor que se puede obtener usando solo los primeros $i$ objetos con una capacidad $w$:
+\[
+m[i][w] =
+\begin{cases}
+0 & \text{si } i=0 \text{ o } w=0,\\[2pt]
+m[i-1][w] & \text{si } p_i > w,\\[2pt]
+\max\bigl(m[i-1][w],\; m[i-1][w-p_i] + v_i\bigr) & \text{si } p_i \le w.
+\end{cases}
+\]
+La respuesta es $m[n][P]$. Es el mismo estilo de tabla que el libro usa para los billetes: cada celda reutiliza celdas de la fila anterior, y las dos opciones del $\max$ corresponden a \emph{no usar} o \emph{usar} el objeto $i$.
+
+\subsection{Reconstrucción de la solución}
+La tabla solo da el valor óptimo. Para saber qué objetos se cargaron se recorre desde $(n,P)$: si $m[i][w]\neq m[i-1][w]$ el objeto $i$ fue usado y se hace $w \leftarrow w-p_i$; en caso contrario no se usó. Esto equivale a la matriz booleana \texttt{utiliza} del libro.
+
+\subsection{Ejemplo con tabla}
+Para mostrar la tabla completa se usa un caso pequeño con $P=10$: A(5\,kg, \$10), B(4\,kg, \$40), C(6\,kg, \$30), D(3\,kg, \$50).
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{c|ccccccccccc}
+ & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 \\
+\hline
+$\varnothing$ & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+A & 0 & 0 & 0 & 0 & 0 & 10 & 10 & 10 & 10 & 10 & 10 \\
+B & 0 & 0 & 0 & 0 & 40 & 40 & 40 & 40 & 40 & 50 & 50 \\
+C & 0 & 0 & 0 & 0 & 40 & 40 & 40 & 40 & 40 & 50 & 70 \\
+D & 0 & 0 & 0 & 50 & 50 & 50 & 50 & \textbf{90} & 90 & 90 & \textbf{90} \\
+\end{tabular}
+\caption{Tabla $m[i][w]$ para $P=10$. El valor óptimo es $m[4][10]=90$, con los objetos B y D (7 kg).}
+\end{table}
+
+\subsection{Aplicación al ejemplo del libro}
+Con $P=40$ y los objetos A, B, C la programación dinámica evalúa las combinaciones factibles: A (36 kg, \$50), B (30 kg, \$48), C (20 kg, \$30); B+C pesa 50 kg y no cabe. El máximo es $m[3][40]=\mathbf{50}$ con \{A\}, superior a los \$48 del voraz.
+
+\subsection{Complejidad}
+\begin{itemize}[nosep]
+  \item \textbf{Tiempo:} $O(nP)$. Es \emph{pseudopolinomial}: depende del valor numérico de $P$ y no solo de la cantidad de datos.
+  \item \textbf{Memoria:} $O(nP)$ con reconstrucción. Si solo se necesita el valor, basta un arreglo unidimensional de tamaño $P+1$ recorrido de derecha a izquierda: $O(P)$.
+\end{itemize}
+
+%=====================================================================
+\section{Comparación}
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{p{3.4cm}p{3.7cm}p{3.7cm}p{3.7cm}}
+\toprule
+ & \textbf{Voraz (fraccionada)} & \textbf{Voraz (0/1)} & \textbf{Prog.\ dinámica (0/1)} \\
+\midrule
+Resultado en el ejemplo ($P=40$) & \$63 (óptimo) & \$48 con $v/p$ (no óptimo) & \$50 (óptimo) \\
+¿Garantiza el óptimo? & Sí & No & Sí \\
+Decisiones & Irrevocables & Irrevocables & Se evalúan todas las opciones por celda \\
+Tiempo & $O(n\log n)$ & $O(n\log n)$ & $O(nP)$ \\
+Memoria & $O(1)$ extra & $O(1)$ extra & $O(nP)$ (u $O(P)$ sin reconstrucción) \\
+Subproblemas & No se almacenan & No se almacenan & Se almacenan en tabla \\
+Objetos fraccionables & Sí & No & No \\
+Facilidad de implementación & Alta & Alta & Media \\
+\bottomrule
+\end{tabular}
+\caption{Comparación entre los enfoques.}
+\end{table}
+
+%=====================================================================
+\section{Resultados experimentales}
+Se implementaron los tres algoritmos en C++ y en Python (código en los anexos).
+
+\subsection{Frecuencia de error del voraz 0/1}
+Se generaron 2000 instancias aleatorias ($3\le n\le 8$, pesos en $[1,20]$, valores en $[1,60]$, $10\le P\le 50$, semilla 2026) y se comparó el voraz por $v/p$ con la programación dinámica.
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\toprule
+ & Python & C++ \\
+\midrule
+Instancias en que el voraz no fue óptimo & 379 (18,9\,\%) & 368 (18,4\,\%) \\
+Pérdida relativa media en esos casos & 10,4\,\% & -- \\
+\bottomrule
+\end{tabular}
+\caption{Fallos del voraz 0/1. Las diferencias entre lenguajes se deben a los distintos generadores aleatorios.}
+\end{table}
+Aproximadamente una de cada cinco instancias da un resultado subóptimo con el voraz; la programación dinámica fue siempre óptima.
+
+\subsection{Tiempos de ejecución}
+\begin{table}[H]
+\centering
+\begin{tabular}{rrrrrr}
+\toprule
+ & & \multicolumn{2}{c}{Python (ms)} & \multicolumn{2}{c}{C++ (ms)} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+$n$ & $P$ & Voraz & Dinámica & Voraz & Dinámica \\
+\midrule
+100 & 1000 & 0,030 & 14,985 & 0,02 & 0,35 \\
+200 & 2000 & 0,057 & 63,768 & 0,03 & 1,39 \\
+400 & 4000 & 0,107 & 285,464 & 0,07 & 5,41 \\
+\bottomrule
+\end{tabular}
+\caption{Tiempos medidos (una ejecución por caso; los valores varían según el equipo).}
+\end{table}
+Al duplicar $n$ y $P$ simultáneamente, el tiempo de la programación dinámica se multiplica por aproximadamente 4 (coherente con $O(nP)$), mientras que el voraz crece casi linealmente. Python es notablemente más lento que C++ en la programación dinámica por el costo del intérprete en los bucles anidados.
+
+%=====================================================================
+\section{Conclusiones}
+\begin{enumerate}
+  \item En la \textbf{mochila fraccionada} el algoritmo voraz ordenado por $v/p$ es óptimo, simple y muy eficiente ($O(n\log n)$). En el ejemplo del libro obtiene \$63.
+  \item En la \textbf{mochila 0/1} el voraz es solo una heurística: con $P=40$ entrega \$48 cuando el óptimo es \$50, y en las pruebas aleatorias falló en cerca del 19\,\% de las instancias.
+  \item La \textbf{programación dinámica} garantiza el óptimo en la variante 0/1 gracias al principio de optimalidad y al almacenamiento de subproblemas, pero con costo $O(nP)$ en tiempo y memoria, que crece con la capacidad.
+  \item Esto confirma lo señalado en el resumen del capítulo: la programación dinámica resuelve problemas que los métodos voraces, en ocasiones, no pueden resolver. La elección depende de la variante del problema: voraz si los objetos son fraccionables o si basta una solución aproximada rápida; programación dinámica si se exige el óptimo exacto y $P$ es manejable.
+\end{enumerate}
+
+\begin{thebibliography}{9}
+\bibitem{sznajdleder} Sznajdleder, P. A. \emph{Algoritmos a fondo}. Alfaomega. Capítulo 21: Estrategia algorítmica.
+\bibitem{cormen} Cormen, T., Leiserson, C., Rivest, R., Stein, C. \emph{Introduction to Algorithms}. MIT Press (capítulos sobre algoritmos voraces y programación dinámica).
+\end{thebibliography}
+
+%=====================================================================
+\appendix
+\section{Código en Python}
+\lstinputlisting[language=Python]{mochila.py}
+
+\section{Código en C++}
+\lstinputlisting[language=C++]{mochila.cpp}
+
+\end{document}
